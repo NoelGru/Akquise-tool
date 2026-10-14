@@ -26,7 +26,17 @@ const BAUKASTEN = ['Jimdo', 'Wix', 'Webnode', 'IONOS-Baukasten', 'Google Sites']
 
 const MAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const TEL_LINK = /href="tel:([^"]+)"/gi;
+// Wörter, deren Umfeld verrät, wie der Verein heute arbeitet.
+const STICHWORTE = ['reservier', 'platzbuchung', 'belegung', 'anmeld', 'mitglied werden',
+                    'aufnahmeantrag', 'formular', 'kursplan', 'schnupper'];
+
 const ANSCHRIFT = /([A-ZÄÖÜ][\wäöüßÄÖÜ.\- ]{2,38}?(?:straße|strasse|str\.|weg|allee|platz|ring|gasse|damm)\s*\d+\s*[a-zA-Z]?)[\s,]+(\d{5})\s+([A-ZÄÖÜ][\wäöüßÄÖÜ.\- ]{2,28})/;
+
+function entschaerfen(roh) {
+  return roh.replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+            .replace(/&#\d+;/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 async function hole(url, ms = 9000) {
   const steuerung = new AbortController();
@@ -56,7 +66,8 @@ function impressumLink(html, basis) {
 async function pruefe(d) {
   const z = { domain: d, erreichbar: false, https: false, zertifikat_ok: true, mobil: false,
               buchung: false, anbieter: null, technik: null, jahr: null, punkte: null,
-              mail: null, telefon: null, strasse: null, ort: null, fehler: null };
+              mail: null, telefon: null, strasse: null, ort: null, fehler: null,
+              titel: null, beschreibung: null, stoff: null };
 
   let seite = null;
   try {
@@ -81,6 +92,29 @@ async function pruefe(d) {
   z.technik = technik.join(', ') || null;
   const jahre = [...tief.matchAll(/(?:©|&copy;|copyright)[^0-9]{0,25}(20\d\d)/g)].map(m => +m[1]);
   if (jahre.length) z.jahr = Math.max(...jahre);
+
+  // Gesprächsstoff: das, woran ein Anschreiben andocken kann.
+  const titel = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  if (titel) z.titel = entschaerfen(titel[1]).slice(0, 160);
+  const besch = /<meta[^>]+name=["']?description["']?[^>]+content=["']([^"']+)/i.exec(html);
+  if (besch) z.beschreibung = entschaerfen(besch[1]).slice(0, 300);
+
+  const klartext = entschaerfen(html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+                                    .replace(/<[^>]+>/g, ' '));
+  const teile = [];
+  const ueber = [...html.matchAll(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi)]
+    .map(m => entschaerfen(m[1])).filter(Boolean).slice(0, 8);
+  if (ueber.length) teile.push('Überschriften: ' + ueber.join(' · '));
+  for (const w of STICHWORTE) {
+    const t = new RegExp(`[^.!?]{0,120}${w}[^.!?]{0,120}[.!?]`, 'i').exec(klartext);
+    if (t) teile.push(`„${w}“: ${t[0].trim()}`);
+    if (teile.length > 6) break;
+  }
+  const jahreImText = [...klartext.matchAll(/\b(20[12]\d)\b/g)]
+    .map(m => +m[1]).filter(j => j <= new Date().getFullYear());
+  if (jahreImText.length) teile.push('Jüngstes Jahr auf der Seite: ' + Math.max(...jahreImText));
+  if (/\.pdf/i.test(html)) teile.push('Es gibt PDF-Dateien, oft Anmeldeformulare zum Ausdrucken.');
+  z.stoff = teile.join('\n').slice(0, 1800) || null;
 
   let text = html;
   const imp = impressumLink(html, seite.ziel);

@@ -246,6 +246,26 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
       .replaceAll('{datum}', new Date().toLocaleDateString('de-DE'));
   }
 
+  function briefingText(v) {
+    const zeilen = [
+      `Verein: ${v.name}`,
+      `Website: https://${v.domain}`,
+      `Sportart: ${sportText(v)}`,
+    ];
+    const ort = [v.strasse, v.ort].filter(Boolean).join(', ');
+    if (ort) zeilen.push(`Anschrift: ${ort}`);
+    const kontakt = [v.telefon, v.mail].filter(Boolean).join(' · ');
+    if (kontakt) zeilen.push(`Kontakt: ${kontakt}`);
+    zeilen.push(`Befunde: ${befunde(v).join(', ') || 'keine'}`);
+    if (v.titel) zeilen.push(`Seitentitel: ${v.titel}`);
+    if (v.beschreibung) zeilen.push(`Selbstbeschreibung: ${v.beschreibung}`);
+    if (v.stoff) zeilen.push('', 'Auf der Seite gefunden:', v.stoff);
+    zeilen.push('', 'Schreib mir dazu bitte ein persönliches Anschreiben: Brief, Sie-Form, '
+      + 'kurz, ohne Verkaufssprache, mit einem Aufhänger, der nur auf diesen Verein passt. '
+      + 'Schau dir die Seite dafür gern selbst an.');
+    return zeilen.join('\n');
+  }
+
   async function oeffne(v) {
     gewaehlt = v;
     $('#lade').hidden = false;
@@ -270,12 +290,40 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     zeile('Technik', v.technik);
     zeile('Geprüft', v.geprueft_am ? new Date(v.geprueft_am).toLocaleDateString('de-DE') : null);
 
-    $('#d-brief').value = briefText(v);
+    $('#d-brief').value = v.anschreiben || briefText(v);
+    $('#d-brief-stand').textContent = v.anschreiben
+      ? 'Eigener Text, gespeichert.'
+      : 'Aus der Vorlage erzeugt. Sobald du hier etwas änderst, wird es gespeichert.';
+    const st = $('#d-stoff');
+    st.textContent = [v.titel && 'Seitentitel: ' + v.titel,
+                      v.beschreibung && 'Selbstbeschreibung: ' + v.beschreibung,
+                      v.stoff].filter(Boolean).join('\n') || '';
     await verlaufLaden(v.id);
     zeichne();
   }
 
-  $('#d-vorlage').addEventListener('change', () => { if (gewaehlt) $('#d-brief').value = briefText(gewaehlt); });
+  $('#d-vorlage').addEventListener('change', () => {
+    if (!gewaehlt) return;
+    $('#d-brief').value = briefText(gewaehlt);
+    aendere('anschreiben', null);
+    $('#d-brief-stand').textContent = 'Aus der Vorlage erzeugt.';
+  });
+
+  let briefTipp;
+  $('#d-brief').addEventListener('input', e => {
+    clearTimeout(briefTipp);
+    briefTipp = setTimeout(() => {
+      aendere('anschreiben', e.target.value);
+      $('#d-brief-stand').textContent = 'Eigener Text, gespeichert.';
+    }, 800);
+  });
+
+  $('#knopf-briefing').addEventListener('click', async () => {
+    if (!gewaehlt) return;
+    await navigator.clipboard.writeText(briefingText(gewaehlt));
+    const b = $('#knopf-briefing'); b.textContent = 'Kopiert';
+    setTimeout(() => (b.textContent = 'Briefing kopieren'), 1500);
+  });
   $('#knopf-zu').addEventListener('click', () => { $('#lade').hidden = true; gewaehlt = null; zeichne(); });
 
   async function aendere(feld, wert) {
@@ -550,6 +598,7 @@ out tags center;`;
             erreichbar: e.erreichbar, https: e.https, zertifikat_ok: e.zertifikat_ok,
             mobil: e.mobil, buchung: e.buchung, anbieter: e.anbieter, technik: e.technik,
             jahr: e.jahr, punkte: e.punkte, geprueft_am: new Date().toISOString(),
+            titel: e.titel, beschreibung: e.beschreibung, stoff: e.stoff,
             telefon: v.telefon || e.telefon, mail: v.mail || e.mail,
             strasse: v.strasse || e.strasse, ort: v.ort || e.ort,
           }).eq('id', v.id);

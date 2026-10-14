@@ -34,6 +34,18 @@ als „ausgelastet" zurück. Aus dem Browser zählt die Adresse des eigenen Ansc
 3. `konfig.js` mit Projekt-URL und veröffentlichbarem Schlüssel füllen
 4. Auf Vercel veröffentlichen, Deployment Protection anlassen
 
+## So entstehen persönliche Anschreiben
+
+1. Verein in der Liste anklicken
+2. **Briefing kopieren** drückt Fakten, Befunde und den auf der Seite gefundenen
+   Gesprächsstoff in die Zwischenablage
+3. Briefing in Claude einfügen, dort gemeinsam den Text schreiben
+4. Fertigen Text in das Feld **Anschreiben** zurückkopieren, er wird beim Verein gespeichert
+5. Drucken und **Als verschickt vermerken**, das setzt Status und Wiedervorlage
+
+Die hinterlegten Vorlagen bleiben als Ausgangspunkt bestehen. Sobald du den Text änderst,
+gilt deine Fassung und wird nicht mehr überschrieben.
+
 ## Rechtliches
 
 Kalte Werbe-E-Mails an Vereine sind nach § 7 Abs. 2 UWG ohne vorherige Einwilligung

@@ -175,6 +175,12 @@ textarea{resize:vertical;line-height:1.6}
 .verlauf li{border-left:2px solid var(--line2);padding:2px 0 2px 13px;font-size:13.8px}
 .verlauf time{display:block;color:var(--dim);font-size:12px;letter-spacing:.02em}
 
+.stoff{font-size:13.2px;line-height:1.55;color:var(--mut);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:11px 13px;white-space:pre-wrap;
+  max-height:220px;overflow:auto}
+.stoff:empty{display:none}
+.winzig{font-size:12.2px;color:var(--dim);margin:6px 0 0;align-self:center}
+
 /* ── Dialog ── */
 dialog{border:1px solid var(--line);border-radius:16px;padding:0;background:var(--surf);
   color:var(--ink);width:min(470px,92vw)}
