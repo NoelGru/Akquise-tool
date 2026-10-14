@@ -1,0 +1,14 @@
+[
+ {
+  "datei": "muenchen.json",
+  "titel": "München",
+  "anzahl": 101,
+  "stand": "2026-10-14"
+ },
+ {
+  "datei": "umland.json",
+  "titel": "Landkreise um München",
+  "anzahl": 157,
+  "stand": "2026-10-14"
+ }
+]

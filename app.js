@@ -432,8 +432,8 @@ out tags center;`;
 
   async function anlagenHolen(gebiet, ebene, melde) {
     const koerper = new URLSearchParams({ data: osmAbfrage(gebiet, ebene) });
-    let nr = 0;
-    for (let runde = 1; runde <= 3; runde++) {
+    let nr = 0, grund = '';
+    for (let runde = 1; runde <= 5; runde++) {
       for (const adresse of KARTE) {
         nr++;
         melde(`Frage den Kartendienst, Versuch ${nr} …`);
@@ -442,22 +442,66 @@ out tags center;`;
           const uhr = setTimeout(() => steuerung.abort(), 25000);
           const a = await fetch(adresse, { method: 'POST', body: koerper, signal: steuerung.signal });
           clearTimeout(uhr);
-          if (!a.ok) continue;
-          const j = await a.json();
-          return osmAufbereiten(j.elements, gebiet);
-        } catch (e) { /* nächster Server */ }
+          const roh = await a.text();
+          // Overpass meldet Fehler teils mit HTTP 200 und einer HTML-Seite.
+          if (!a.ok || !roh.trimStart().startsWith('{')) {
+            grund = !a.ok ? `Server antwortet mit HTTP ${a.status}` : 'Server meldet Überlastung';
+            continue;
+          }
+          return osmAufbereiten(JSON.parse(roh).elements, gebiet);
+        } catch (e) {
+          grund = e.name === 'AbortError' ? 'Server antwortet nicht' : 'Server nicht erreichbar';
+        }
       }
-      if (runde < 3) {
-        melde('Alle Server gerade ausgelastet. Ich warte 20 Sekunden und probiere weiter …');
-        await warte(20000);
+      if (runde < 5) {
+        melde(`${grund}. Ich warte 25 Sekunden und probiere weiter, Runde ${runde} von 5 …`);
+        await warte(25000);
       }
     }
-    throw new Error('Der Kartendienst ist gerade nicht erreichbar. Probier es in ein paar Minuten noch einmal.');
+    throw new Error(`Der Kartendienst ist seit mehreren Minuten überlastet (${grund}). `
+      + 'Nimm so lange ein vorbereitetes Gebiet oder versuch es später noch einmal.');
+  }
+
+  /* ── Vorbereitete Gebiete ────────────────── */
+  async function vorbereiteteAnbieten() {
+    let liste;
+    try {
+      liste = await (await fetch('daten/index.json')).json();
+    } catch (e) { return; }
+    const k = $('#s-fertig-knoepfe'); k.innerHTML = '';
+    liste.forEach(g => {
+      const b = el('button', 'btn btn--klein btn--still', `${g.titel} · ${g.anzahl}`);
+      b.type = 'button';
+      b.addEventListener('click', () => vorbereitetesLaden(g, b));
+      k.append(b);
+    });
+    $('#s-fertig').hidden = liste.length === 0;
+  }
+
+  async function vorbereitetesLaden(g, knopf) {
+    const h = $('#s-hinweis');
+    knopf.disabled = true;
+    h.className = 'hinweis'; h.textContent = `${g.titel} wird geladen …`;
+    try {
+      const j = await (await fetch('daten/' + g.datei)).json();
+      const { error } = await sb.from('vereine').upsert(j.eintraege, {
+        onConflict: 'besitzer,domain', ignoreDuplicates: true,
+      });
+      if (error) throw new Error(error.message);
+      dlg.close();
+      await laden();
+    } catch (e) {
+      h.className = 'hinweis fehler'; h.textContent = 'Laden fehlgeschlagen: ' + e.message;
+    } finally { knopf.disabled = false; }
   }
 
   /* ── Suche und Prüfung ───────────────────── */
   const dlg = $('#dialog-suche');
-  $('#knopf-suche').addEventListener('click', () => { $('#s-hinweis').textContent = ''; dlg.showModal(); });
+  $('#knopf-suche').addEventListener('click', () => {
+    $('#s-hinweis').textContent = ''; $('#s-hinweis').className = 'hinweis';
+    vorbereiteteAnbieten();
+    dlg.showModal();
+  });
 
   function fortschritt(an, anteil, text) {
     const b = $('#balken');
