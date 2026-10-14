@@ -115,19 +115,25 @@ textarea{resize:vertical;line-height:1.6}
 .tabelle{width:100%;border-collapse:collapse;font-size:14px}
 .tabelle th{position:sticky;top:0;background:var(--surf);text-align:left;
   font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
-  padding:13px 14px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+  padding:13px 14px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
 .tabelle th:hover{color:var(--mut)}
 .tabelle th.r{text-align:right}
 .tabelle td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 .tabelle tr:last-child td{border-bottom:0}
 .tabelle tbody tr{cursor:pointer;transition:background .12s}
 .tabelle tbody tr:hover,.tabelle tbody tr[aria-selected="true"]{background:var(--bg)}
-/* Spaltenbreiten: Name und Befunde bekommen den Platz, der Rest bleibt knapp. */
-.tabelle td:nth-child(1),.tabelle th:nth-child(1){width:52px}
-.tabelle td:nth-child(2){min-width:210px}
-.tabelle td:nth-child(3),.tabelle td:nth-child(4),
-.tabelle td:nth-child(6),.tabelle td:nth-child(7){white-space:nowrap}
-.tabelle td:nth-child(5){width:100%}
+/* Feste Spaltenbreiten, damit alles nebeneinander passt und nichts seitlich
+   herausläuft. Die Befunde bekommen den größten Anteil und dürfen umbrechen. */
+.tabelle{table-layout:fixed}
+.tabelle col.c-pkt{width:48px}
+.tabelle col.c-name{width:19%}
+.tabelle col.c-sport{width:13%}
+.tabelle col.c-ort{width:13%}
+.tabelle col.c-bef{width:auto}
+.tabelle col.c-stat{width:104px}
+.tabelle col.c-wv{width:150px}
+.tabelle td:nth-child(3){hyphens:auto}
+.tabelle td:nth-child(4){overflow-wrap:anywhere}
 .pkt{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;font-size:17px}
 .pkt.hoch{color:var(--err)}.pkt.mittel{color:var(--warn)}.pkt.gut{color:var(--dim)}
 .vname{font-weight:600}
