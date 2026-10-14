@@ -40,29 +40,41 @@ export default async function handler(req, res) {
   if (!gebiet) return res.status(400).json({ fehler: 'Gebiet fehlt' });
 
   const koerper = new URLSearchParams({ data: abfrage(gebiet, ebene) });
+
+  // Messungen: eine erfolgreiche Antwort braucht 7 bis 9 Sekunden, eine Ablehnung
+  // wegen Auslastung kommt ebenfalls nach rund 7. Deshalb kurz warten und lieber
+  // den nächsten Server fragen, statt in das Zeitlimit der Funktion zu laufen.
+  const PRO_SERVER = 15000;
+  const BUDGET = 45000;
+  const beginn = Date.now();
   let elemente = null, letzter = '';
 
-  for (const adresse of SERVER) {
-    try {
-      const steuerung = new AbortController();
-      const uhr = setTimeout(() => steuerung.abort(), 55000);
-      const antwort = await fetch(adresse, {
-        method: 'POST',
-        body: koerper,
-        headers: { 'User-Agent': 'akquise-tool/1.0 (Recherche)' },
-        signal: steuerung.signal,
-      });
-      clearTimeout(uhr);
-      if (!antwort.ok) {
-        letzter = antwort.status === 504 || antwort.status === 429
-          ? 'Der Kartendienst ist gerade ausgelastet'
-          : 'HTTP ' + antwort.status;
-        continue;
+  for (let runde = 0; runde < 2 && !elemente; runde++) {
+    for (const adresse of SERVER) {
+      if (Date.now() - beginn > BUDGET - PRO_SERVER) break;
+      try {
+        const steuerung = new AbortController();
+        const uhr = setTimeout(() => steuerung.abort(), PRO_SERVER);
+        const antwort = await fetch(adresse, {
+          method: 'POST',
+          body: koerper,
+          headers: { 'User-Agent': 'akquise-tool/1.0 (Recherche)' },
+          signal: steuerung.signal,
+        });
+        clearTimeout(uhr);
+        if (!antwort.ok) {
+          letzter = antwort.status === 504 || antwort.status === 429
+            ? 'Der Kartendienst ist gerade ausgelastet'
+            : 'Kartendienst meldet HTTP ' + antwort.status;
+          continue;
+        }
+        elemente = (await antwort.json()).elements;
+        break;
+      } catch (e) {
+        letzter = e.name === 'AbortError'
+          ? 'Der Kartendienst antwortet zu langsam'
+          : 'Kartendienst nicht erreichbar';
       }
-      elemente = (await antwort.json()).elements;
-      break;
-    } catch (e) {
-      letzter = e.name === 'AbortError' ? 'Zeitüberschreitung' : String(e.message || e);
     }
   }
 

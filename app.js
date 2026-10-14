@@ -356,7 +356,11 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
       if (a.status === 401 || a.status === 403 || /sso|authenticate/i.test(roh.slice(0, 400))) {
         throw new Error('Die Vercel-Anmeldung ist abgelaufen. Seite neu laden und erneut anmelden.');
       }
-      throw new Error(`Der Server hat keine Daten geliefert (HTTP ${a.status}).`);
+      const f = new Error(a.status === 504 || a.status === 502
+        ? 'Die Suche hat zu lange gedauert.'
+        : `Der Server hat keine Daten geliefert (HTTP ${a.status}).`);
+      f.erneut = a.status === 504 || a.status === 502;
+      throw f;
     }
     if (!a.ok) {
       const f = new Error(j.fehler || `Fehler (HTTP ${a.status}).`);
