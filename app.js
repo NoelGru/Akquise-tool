@@ -76,6 +76,18 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     },
   ];
 
+  const SPORT = {
+    tennis:'Tennis', squash:'Squash', badminton:'Badminton', padel:'Padel',
+    paddle_tennis:'Padel', table_tennis:'Tischtennis', '10pin':'Bowling', bowls:'Kegeln',
+    beachvolleyball:'Beachvolleyball', sports_centre:'Sportzentrum', ice_stock:'Eisstock',
+    soccer:'Fußball', fitness:'Fitness', climbing:'Klettern', swimming:'Schwimmen',
+    multi:'Mehrere Sparten', gymnastics:'Turnen', basketball:'Basketball',
+    volleyball:'Volleyball', handball:'Handball', billiards:'Billard', darts:'Darts',
+    shooting:'Schießen', yoga:'Yoga', boules:'Boule', skateboard:'Skateboard',
+  };
+  const sportText = v => (v.sport || '').split(';').filter(Boolean)
+    .map(t => SPORT[t] || t.replace(/_/g, ' ')).join(', ') || '—';
+
   const $ = s => document.querySelector(s);
   const el = (t, k, x) => { const n = document.createElement(t); if (k) n.className = k; if (x != null) n.textContent = x; return n; };
 
@@ -168,7 +180,7 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
       const tdN = el('td');
       tdN.append(el('div', 'vname', v.name), el('div', 'vdom', v.domain));
 
-      const tdS = el('td', null, v.sport || '—');
+      const tdS = el('td', null, sportText(v));
       const tdO = el('td', null, v.ort || '—');
 
       const tdB = el('td');
@@ -250,7 +262,7 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     const dl = $('#d-daten'); dl.innerHTML = '';
     const zeile = (k, w) => { if (!w && w !== 0) return; dl.append(el('dt', '', k), el('dd', '', String(w))); };
     zeile('Punkte', v.punkte);
-    zeile('Sportart', v.sport);
+    zeile('Sportart', sportText(v));
     zeile('Anschrift', [v.strasse, v.ort].filter(Boolean).join(', '));
     zeile('Telefon', v.telefon);
     zeile('E-Mail', v.mail);
