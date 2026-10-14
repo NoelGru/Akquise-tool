@@ -338,6 +338,34 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     verlaufLaden(gewaehlt.id);
   });
 
+  /* ── Aufrufe an die eigenen Funktionen ───── */
+  async function ruf(pfad, koerper) {
+    let a;
+    try {
+      a = await fetch(pfad, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(koerper),
+      });
+    } catch (e) {
+      throw new Error('Keine Verbindung zum Server.');
+    }
+    const roh = await a.text();
+    let j = null;
+    try { j = JSON.parse(roh); } catch (e) { j = null; }
+    if (j === null) {
+      if (a.status === 401 || a.status === 403 || /sso|authenticate/i.test(roh.slice(0, 400))) {
+        throw new Error('Die Vercel-Anmeldung ist abgelaufen. Seite neu laden und erneut anmelden.');
+      }
+      throw new Error(`Der Server hat keine Daten geliefert (HTTP ${a.status}).`);
+    }
+    if (!a.ok) {
+      const f = new Error(j.fehler || `Fehler (HTTP ${a.status}).`);
+      f.erneut = Boolean(j.erneut);
+      throw f;
+    }
+    return j;
+  }
+
   /* ── Suche und Prüfung ───────────────────── */
   const dlg = $('#dialog-suche');
   $('#knopf-suche').addEventListener('click', () => { $('#s-hinweis').textContent = ''; dlg.showModal(); });
@@ -353,17 +381,21 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     const gebiet = $('#s-gebiet').value.trim();
     if (!gebiet) return;
     const h = $('#s-hinweis'); h.className = 'hinweis'; h.textContent = 'Suche läuft, das dauert bis zu einer Minute …';
-    let treffer;
-    try {
-      const a = await fetch('/api/suchen', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gebiet, ebene: $('#s-ebene').value }),
-      });
-      const j = await a.json();
-      if (!a.ok) throw new Error(j.fehler || 'Fehler');
-      treffer = j.treffer;
-    } catch (e) {
-      h.className = 'hinweis fehler'; h.textContent = String(e.message || e); return;
+    let treffer = null;
+    for (let versuch = 1; versuch <= 5 && treffer === null; versuch++) {
+      try {
+        h.className = 'hinweis';
+        h.textContent = versuch === 1 ? 'Suche läuft, das dauert bis zu einer Minute …'
+                                      : `Noch einmal, Versuch ${versuch} von 5 …`;
+        treffer = (await ruf('/api/suchen', { gebiet, ebene: $('#s-ebene').value })).treffer;
+      } catch (e) {
+        if (!e.erneut || versuch === 5) {
+          h.className = 'hinweis fehler'; h.textContent = String(e.message || e); return;
+        }
+        h.className = 'hinweis';
+        h.textContent = e.message + ' Ich warte 30 Sekunden und versuche es noch einmal.';
+        await new Promise(r => setTimeout(r, 30000));
+      }
     }
     if (!treffer.length) { h.className = 'hinweis fehler'; h.textContent = 'Keine Anlagen mit Website gefunden.'; return; }
 
@@ -385,11 +417,7 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
       const teil = domains.slice(i, i + stueck);
       fortschritt(true, i / domains.length, `Prüfe Websites … ${i} von ${domains.length}`);
       try {
-        const a = await fetch('/api/pruefen', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domains: teil }),
-        });
-        const { ergebnisse } = await a.json();
+        const { ergebnisse } = await ruf('/api/pruefen', { domains: teil });
         for (const e of ergebnisse || []) {
           const v = alle.find(x => x.domain === e.domain);
           if (!v) continue;

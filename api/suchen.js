@@ -7,17 +7,20 @@ const SERVER = [
   'https://overpass.private.coffee/api/interpreter',
 ];
 
-const SPORT = 'tennis|squash|badminton|padel|paddle_tennis|table_tennis|10pin|bowls|beachvolleyball';
+// Exakte Treffer statt Suchausdruck: Overpass nutzt dafür seinen Index.
+const SPORT = ['tennis','squash','badminton','padel','paddle_tennis','table_tennis',
+               '10pin','bowls','beachvolleyball'];
 
 const RAUS = ['urbansportsclub', 'facebook', 'instagram', 'google.', 'wikipedia',
               'eversports.de', 'stadt.muenchen.de'];
 
 function abfrage(gebiet, ebene) {
   const g = String(gebiet).replace(/["\\]/g, '');
-  return `[out:json][timeout:170];
+  const teile = SPORT.map(s => `  nwr["sport"="${s}"](area.a);`).join('\n');
+  return `[out:json][timeout:90];
 area["name"="${g}"]["admin_level"="${ebene}"]->.a;
 (
-  nwr["sport"~"${SPORT}"](area.a);
+${teile}
   nwr["leisure"="sports_centre"](area.a);
 );
 out tags center;`;
@@ -50,7 +53,12 @@ export default async function handler(req, res) {
         signal: steuerung.signal,
       });
       clearTimeout(uhr);
-      if (!antwort.ok) { letzter = 'HTTP ' + antwort.status; continue; }
+      if (!antwort.ok) {
+        letzter = antwort.status === 504 || antwort.status === 429
+          ? 'Der Kartendienst ist gerade ausgelastet'
+          : 'HTTP ' + antwort.status;
+        continue;
+      }
       elemente = (await antwort.json()).elements;
       break;
     } catch (e) {
@@ -59,7 +67,10 @@ export default async function handler(req, res) {
   }
 
   if (!elemente) {
-    return res.status(503).json({ fehler: 'Kartendienst nicht erreichbar: ' + letzter });
+    return res.status(503).json({
+      fehler: letzter + '. Das passiert bei dem freien Dienst öfter.',
+      erneut: true,
+    });
   }
 
   const nach = new Map();
