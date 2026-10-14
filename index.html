@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akquise</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico">
+<link rel="preload" href="schriften/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="stil.css">
+<script>(function(){try{var t=localStorage.getItem("theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+</head>
+<body>
+
+<!-- ───── Anmeldung ───── -->
+<section id="tor" class="tor" hidden>
+  <form class="tor__k" id="anmeldung">
+    <h1>Akquise</h1>
+    <p>Vereine finden, bewerten, <span class="ser">ansprechen</span>.</p>
+    <label for="mail">E-Mail</label>
+    <input id="mail" type="email" autocomplete="username" required>
+    <label for="pw">Passwort</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn btn--voll" type="submit">Anmelden</button>
+    <p class="hinweis" id="tor-hinweis" role="status"></p>
+  </form>
+</section>
+
+<!-- ───── Anwendung ───── -->
+<div id="app" hidden>
+
+  <header class="kopf">
+    <div class="kopf__links">
+      <span class="marke"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect class="logo__feld" width="48" height="48" rx="11"/><text class="logo__text" x="20" y="31" text-anchor="middle" font-family="Archivo" font-weight="700" font-size="22" letter-spacing="-1.6">ng</text><circle class="logo__punkt" cx="37" cy="29" r="3.2"/></svg>Akquise</span>
+      <button class="btn btn--klein" id="knopf-suche">Gebiet durchsuchen</button>
+      <button class="btn btn--klein btn--still" id="knopf-neu-pruefen">Erneut prüfen</button>
+    </div>
+    <div class="kopf__rechts">
+      <input id="filter-text" type="search" placeholder="Suchen …" autocomplete="off">
+      <button class="btn btn--klein btn--still" id="knopf-thema" title="Ansicht wechseln">◐</button>
+      <button class="btn btn--klein btn--still" id="knopf-abmelden">Abmelden</button>
+    </div>
+  </header>
+
+  <nav class="reiter" id="reiter"></nav>
+
+  <main class="inhalt">
+    <div class="tabelle-rahmen">
+      <table class="tabelle" id="tabelle">
+        <thead>
+          <tr>
+            <th data-sort="punkte" class="r">Pkt</th>
+            <th data-sort="name">Verein</th>
+            <th data-sort="sport">Sportart</th>
+            <th data-sort="ort">Ort</th>
+            <th>Befunde</th>
+            <th data-sort="status">Status</th>
+            <th data-sort="wiedervorlage">Wiedervorlage</th>
+          </tr>
+        </thead>
+        <tbody id="zeilen"></tbody>
+      </table>
+      <p class="leer" id="leer" hidden>Noch nichts da. Starte oben mit „Gebiet durchsuchen“.</p>
+    </div>
+  </main>
+</div>
+
+<!-- ───── Detailbereich ───── -->
+<aside class="lade" id="lade" hidden>
+  <div class="lade__kopf">
+    <div>
+      <h2 id="d-name"></h2>
+      <p class="mut" id="d-unter"></p>
+    </div>
+    <button class="btn btn--klein btn--still" id="knopf-zu">Schließen</button>
+  </div>
+  <div class="lade__koerper">
+    <div class="feld">
+      <label for="d-status">Status</label>
+      <select id="d-status"></select>
+    </div>
+    <div class="feld">
+      <label for="d-wv">Wiedervorlage</label>
+      <input id="d-wv" type="date">
+    </div>
+    <div class="feld">
+      <label for="d-notiz">Notiz</label>
+      <textarea id="d-notiz" rows="3" placeholder="Was besprochen wurde, wer Ansprechpartner ist …"></textarea>
+    </div>
+
+    <h3>Befunde</h3>
+    <div class="marken" id="d-befunde"></div>
+    <dl class="daten" id="d-daten"></dl>
+
+    <h3>Anschreiben</h3>
+    <div class="feld">
+      <select id="d-vorlage"></select>
+    </div>
+    <textarea id="d-brief" rows="14" spellcheck="false"></textarea>
+    <div class="knopfreihe">
+      <button class="btn btn--klein" id="knopf-kopieren">Text kopieren</button>
+      <button class="btn btn--klein btn--still" id="knopf-drucken">Als Brief drucken</button>
+      <button class="btn btn--klein btn--still" id="knopf-brief-notiert">Als verschickt vermerken</button>
+    </div>
+
+    <h3>Verlauf</h3>
+    <form class="verlauf-neu" id="verlauf-neu">
+      <select id="v-art">
+        <option value="anruf">Anruf</option>
+        <option value="brief">Brief</option>
+        <option value="mail">E-Mail</option>
+        <option value="notiz">Notiz</option>
+      </select>
+      <input id="v-text" placeholder="Was ist passiert?" autocomplete="off">
+      <button class="btn btn--klein" type="submit">Eintragen</button>
+    </form>
+    <ol class="verlauf" id="d-verlauf"></ol>
+  </div>
+</aside>
+
+<!-- ───── Suchdialog ───── -->
+<dialog id="dialog-suche">
+  <form method="dialog" class="dialog__k" id="form-suche">
+    <h2>Gebiet durchsuchen</h2>
+    <p class="mut">Die Adressen stammen aus OpenStreetMap. Danach prüfe ich jede Website automatisch.</p>
+    <label for="s-gebiet">Gebiet</label>
+    <input id="s-gebiet" placeholder="z. B. München oder Landkreis Starnberg" required>
+    <label for="s-ebene">Verwaltungsebene</label>
+    <select id="s-ebene">
+      <option value="6" selected>Stadt oder Landkreis</option>
+      <option value="5">Regierungsbezirk</option>
+      <option value="4">Bundesland</option>
+      <option value="8">Gemeinde</option>
+    </select>
+    <p class="hinweis" id="s-hinweis" role="status"></p>
+    <div class="knopfreihe knopfreihe--rechts">
+      <button class="btn btn--klein btn--still" value="abbruch" type="submit">Abbrechen</button>
+      <button class="btn btn--klein" id="s-start" type="button">Suchen</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="balken" id="balken" hidden><span id="balken-text"></span><span class="balken__spur"><span class="balken__fuell" id="balken-fuell"></span></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script src="konfig.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
