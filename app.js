@@ -370,6 +370,91 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     return j;
   }
 
+  /* ── Kartendienst, direkt aus dem Browser ──
+     Bewusst nicht über eine eigene Funktion: Der freie Overpass-Dienst drosselt nach
+     IP-Adresse, und die Server von Vercel teilen sich ihre Adressen mit vielen anderen.
+     Aus dem Browser zählt die Adresse deines Anschlusses, die hat ihr eigenes Kontingent.
+     Keine eigenen Kopfzeilen setzen, sonst verlangt der Browser eine Vorabanfrage,
+     die der Dienst mit 406 ablehnt. */
+  const KARTE = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+  ];
+  const SPORTARTEN = ['tennis', 'squash', 'badminton', 'padel', 'paddle_tennis',
+                      'table_tennis', '10pin', 'bowls', 'beachvolleyball'];
+  const RAUS = ['urbansportsclub', 'facebook', 'instagram', 'google.', 'wikipedia',
+                'eversports.de', 'stadt.muenchen.de'];
+
+  const warte = ms => new Promise(r => setTimeout(r, ms));
+
+  function osmAbfrage(gebiet, ebene) {
+    const g = String(gebiet).replace(/["\\]/g, '');
+    const teile = SPORTARTEN.map(x => `  nwr["sport"="${x}"](area.a);`).join('\n');
+    return `[out:json][timeout:90];
+area["name"="${g}"]["admin_level"="${ebene}"]->.a;
+(
+${teile}
+  nwr["leisure"="sports_centre"](area.a);
+);
+out tags center;`;
+  }
+
+  function osmDomain(roh) {
+    try {
+      const u = new URL(roh.startsWith('http') ? roh : 'https://' + roh);
+      return u.hostname.toLowerCase().replace(/^www\./, '');
+    } catch { return null; }
+  }
+
+  function osmAufbereiten(elemente, gebiet) {
+    const nach = new Map();
+    for (const x of elemente || []) {
+      const t = x.tags || {};
+      const web = t.website || t['contact:website'];
+      if (!web || !t.name) continue;
+      const d = osmDomain(web);
+      if (!d || !d.includes('.') || RAUS.some(r => d.includes(r))) continue;
+      const sport = t.sport || t.leisure || '';
+      const da = nach.get(d);
+      if (da && da.sport.length >= sport.length) continue;
+      nach.set(d, {
+        name: t.name, domain: d, sport,
+        strasse: [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ') || null,
+        ort: [t['addr:postcode'], t['addr:city']].filter(Boolean).join(' ') || null,
+        telefon: t.phone || t['contact:phone'] || null,
+        mail: t.email || t['contact:email'] || null,
+        osm_id: `${x.type}/${x.id}`, gebiet,
+      });
+    }
+    return [...nach.values()];
+  }
+
+  async function anlagenHolen(gebiet, ebene, melde) {
+    const koerper = new URLSearchParams({ data: osmAbfrage(gebiet, ebene) });
+    let nr = 0;
+    for (let runde = 1; runde <= 3; runde++) {
+      for (const adresse of KARTE) {
+        nr++;
+        melde(`Frage den Kartendienst, Versuch ${nr} …`);
+        try {
+          const steuerung = new AbortController();
+          const uhr = setTimeout(() => steuerung.abort(), 25000);
+          const a = await fetch(adresse, { method: 'POST', body: koerper, signal: steuerung.signal });
+          clearTimeout(uhr);
+          if (!a.ok) continue;
+          const j = await a.json();
+          return osmAufbereiten(j.elements, gebiet);
+        } catch (e) { /* nächster Server */ }
+      }
+      if (runde < 3) {
+        melde('Alle Server gerade ausgelastet. Ich warte 20 Sekunden und probiere weiter …');
+        await warte(20000);
+      }
+    }
+    throw new Error('Der Kartendienst ist gerade nicht erreichbar. Probier es in ein paar Minuten noch einmal.');
+  }
+
   /* ── Suche und Prüfung ───────────────────── */
   const dlg = $('#dialog-suche');
   $('#knopf-suche').addEventListener('click', () => { $('#s-hinweis').textContent = ''; dlg.showModal(); });
@@ -385,21 +470,13 @@ Kein Abschluss, sondern ein Termin oder die Erlaubnis, Unterlagen zu schicken.`,
     const gebiet = $('#s-gebiet').value.trim();
     if (!gebiet) return;
     const h = $('#s-hinweis'); h.className = 'hinweis'; h.textContent = 'Suche läuft, das dauert bis zu einer Minute …';
-    let treffer = null;
-    for (let versuch = 1; versuch <= 5 && treffer === null; versuch++) {
-      try {
-        h.className = 'hinweis';
-        h.textContent = versuch === 1 ? 'Suche läuft, das dauert bis zu einer Minute …'
-                                      : `Noch einmal, Versuch ${versuch} von 5 …`;
-        treffer = (await ruf('/api/suchen', { gebiet, ebene: $('#s-ebene').value })).treffer;
-      } catch (e) {
-        if (!e.erneut || versuch === 5) {
-          h.className = 'hinweis fehler'; h.textContent = String(e.message || e); return;
-        }
-        h.className = 'hinweis';
-        h.textContent = e.message + ' Ich warte 30 Sekunden und versuche es noch einmal.';
-        await new Promise(r => setTimeout(r, 30000));
-      }
+    let treffer;
+    try {
+      treffer = await anlagenHolen(gebiet, $('#s-ebene').value, t => {
+        h.className = 'hinweis'; h.textContent = t;
+      });
+    } catch (e) {
+      h.className = 'hinweis fehler'; h.textContent = String(e.message || e); return;
     }
     if (!treffer.length) { h.className = 'hinweis fehler'; h.textContent = 'Keine Anlagen mit Website gefunden.'; return; }
 

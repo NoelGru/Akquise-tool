@@ -6,8 +6,12 @@ zu bewerten und systematisch anzusprechen.
 ## Aufbau
 
 - `index.html`, `stil.css`, `app.js` — Oberfläche, kein Framework, kein Bauschritt
-- `api/suchen.js` — holt Anlagen eines Gebiets aus OpenStreetMap (Overpass)
 - `api/pruefen.js` — ruft jede Website auf und vergibt Punkte für das, was fehlt
+
+Die Abfrage an OpenStreetMap läuft bewusst **im Browser** und nicht über eine eigene
+Funktion. Der freie Overpass-Dienst drosselt nach IP-Adresse, und die Server von Vercel
+teilen sich ihre Adressen mit vielen anderen Projekten, dort kam praktisch jede Anfrage
+als „ausgelastet" zurück. Aus dem Browser zählt die Adresse des eigenen Anschlusses.
 - `sql/001_schema.sql` — Tabellen, Trigger und Zugriffsregeln für Supabase
 - `konfig.js` — Supabase-URL und veröffentlichbarer Schlüssel
 
